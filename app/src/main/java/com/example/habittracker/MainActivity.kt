@@ -1,19 +1,22 @@
 package com.example.habittracker
 
+import android.content.SharedPreferences
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
+import com.example.habittracker.presentation.HabitsViewModel
 import com.example.habittracker.presentation.navigation.Screen
 import com.example.habittracker.ui.screens.AddEditHabitScreen
 import com.example.habittracker.ui.screens.HabitsScreen
 import com.example.habittracker.ui.theme.HabitTrackerTheme
-import com.example.habittracker.presentation.HabitsViewModel
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -36,10 +39,11 @@ fun MyHabitTrackerApp() {
         startDestination = Screen.Habits
     ) {
         composable<Screen.Habits> {
+            val habits by viewModel.habits.collectAsStateWithLifecycle()
             HabitsScreen(
-                habits = viewModel.habits,
-                onToggle = { habit -> viewModel.toggleCompleted(habit) },
-                onDelete = { habit -> viewModel.deleteHabit(habit) },
+                habits = habits,
+                onToggle = viewModel::toggleCompleted,
+                onDelete = viewModel::deleteHabit,
                 onEditClick = { habit ->
                     navController.navigate(Screen.AddEdit(habit.id))
                 },
@@ -49,14 +53,13 @@ fun MyHabitTrackerApp() {
             )
         }
 
-        composable<Screen.AddEdit>
-        { backStackEntry ->
+        composable<Screen.AddEdit> { backStackEntry ->
             val route = backStackEntry.toRoute<Screen.AddEdit>()
-            val habitId = route.habitId
+            val habit by viewModel.habitById(route.habitId).collectAsStateWithLifecycle()
             AddEditHabitScreen(
-                habitId = habitId,
+                habit = habit,
                 onSave = { name, description ->
-                    habitId?.let { viewModel.updateHabit(habitId, name, description) } ?: run {
+                    habit?.let { it -> viewModel.updateHabit(it.id, name, description) } ?: run {
                         viewModel.addHabit(name, description)
                     }
                 },

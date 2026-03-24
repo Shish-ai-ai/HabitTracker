@@ -5,12 +5,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -23,28 +22,23 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.habittracker.presentation.HabitsViewModel
+import com.example.habittracker.data.Habit
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddEditHabitScreen(
-    habitId: Int?,
+    habit: Habit?,
     onSave: (String, String) -> Unit,
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    val viewModel: HabitsViewModel = viewModel()
-    val habit = habitId?.let { id ->
-        viewModel.habits.find { it.id == id }
-    }
-
     var name by remember { mutableStateOf(habit?.name ?: "") }
     var description by remember { mutableStateOf(habit?.description ?: "") }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(if (habitId == null) "Добавить привычку" else "Редактировать привычку") },
+                title = { Text(habit?.let { "Добавить привычку" } ?: "Редактировать привычку") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Назад")
@@ -54,7 +48,7 @@ fun AddEditHabitScreen(
         }
     ) { paddingValues ->
         Column(
-            modifier = Modifier
+            modifier = modifier
                 .fillMaxSize()
                 .padding(paddingValues)
                 .padding(16.dp),
@@ -67,6 +61,7 @@ fun AddEditHabitScreen(
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true
             )
+
             OutlinedTextField(
                 value = description,
                 onValueChange = { description = it },
@@ -75,6 +70,7 @@ fun AddEditHabitScreen(
                 minLines = 3,
                 maxLines = 5
             )
+
             Button(
                 onClick = {
                     if (name.isNotBlank() && description.isNotBlank()) {
