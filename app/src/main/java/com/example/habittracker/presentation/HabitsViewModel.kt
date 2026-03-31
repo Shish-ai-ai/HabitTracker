@@ -21,6 +21,9 @@ class HabitsViewModel(
     private val _habits = MutableStateFlow<List<Habit>>(emptyList())
     val habits = _habits.asStateFlow()
 
+    private val _snackbarMessage = MutableStateFlow<String?>(null)
+    val snackbarMessage: StateFlow<String?> = _snackbarMessage.asStateFlow()
+
     private var nextId = 0
 
     companion object {
@@ -49,6 +52,10 @@ class HabitsViewModel(
         sharedPreferences.edit { putString(KEY_HABITS, json) }
     }
 
+    fun clearSnackbarMessage() {
+        _snackbarMessage.value = null
+    }
+
     fun habitById(id: Int?): StateFlow<Habit?> =
         _habits
             .map { list -> list.firstOrNull { it.id == id } }
@@ -64,6 +71,7 @@ class HabitsViewModel(
             old + habit
         }
         saveData()
+        _snackbarMessage.value = "Привычка \"${habit.name}\" добавлена"
     }
 
     fun updateHabit(id: Int, name: String, description: String) {
@@ -74,11 +82,13 @@ class HabitsViewModel(
             }
         }
         saveData()
+        _snackbarMessage.value = "Привычка \"$name\" обновлена"
     }
 
     fun deleteHabit(habit: Habit) {
         _habits.update { old -> old - habit }
         saveData()
+        _snackbarMessage.value = "Привычка \"${habit.name}\" удалена"
     }
 
     fun toggleCompleted(habit: Habit) {

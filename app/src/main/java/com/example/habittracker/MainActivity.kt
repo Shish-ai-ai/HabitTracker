@@ -33,6 +33,8 @@ fun MyHabitTrackerApp() {
     val navController = rememberNavController()
     val viewModel: HabitsViewModel = koinViewModel()
 
+    val snackbarMessage by viewModel.snackbarMessage.collectAsStateWithLifecycle()
+
     NavHost(
         navController = navController,
         startDestination = Screen.Habits
@@ -48,7 +50,9 @@ fun MyHabitTrackerApp() {
                 },
                 onAddClick = {
                     navController.navigate(Screen.AddEdit(null))
-                }
+                },
+                snackbarMessage = snackbarMessage,
+                onSnackbarShown = viewModel::clearSnackbarMessage
             )
         }
 

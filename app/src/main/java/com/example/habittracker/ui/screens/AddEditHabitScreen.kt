@@ -38,7 +38,7 @@ fun AddEditHabitScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(habit?.let { "Добавить привычку" } ?: "Редактировать привычку") },
+                title = { Text(habit?.let { "Редактировать привычку" } ?: "Добавить привычку") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Назад")
