@@ -15,7 +15,7 @@ import kotlinx.serialization.json.Json
 import androidx.core.content.edit
 
 class HabitsViewModel(
-    private val sharedPreferences: SharedPreferences
+    private val sharedPreferences: SharedPreferences,
 ) : ViewModel() {
 
     private val _habits = MutableStateFlow<List<Habit>>(emptyList())

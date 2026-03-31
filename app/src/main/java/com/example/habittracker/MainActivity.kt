@@ -1,13 +1,11 @@
 package com.example.habittracker
 
-import android.content.SharedPreferences
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -17,6 +15,7 @@ import com.example.habittracker.presentation.navigation.Screen
 import com.example.habittracker.ui.screens.AddEditHabitScreen
 import com.example.habittracker.ui.screens.HabitsScreen
 import com.example.habittracker.ui.theme.HabitTrackerTheme
+import org.koin.androidx.compose.koinViewModel
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -32,7 +31,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun MyHabitTrackerApp() {
     val navController = rememberNavController()
-    val viewModel: HabitsViewModel = viewModel()
+    val viewModel: HabitsViewModel = koinViewModel()
 
     NavHost(
         navController = navController,
