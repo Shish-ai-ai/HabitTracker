@@ -1,5 +1,7 @@
 package com.example.habittracker.ui.screens
 
+import android.R
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -17,6 +19,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -69,14 +72,20 @@ fun HabitsScreen(
     }
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = { TopAppBar(title = { Text("Habit Tracker") }) },
         floatingActionButton = {
-            FloatingActionButton(onClick = onAddClick) {
+            FloatingActionButton(
+                onClick = onAddClick,
+                containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+            ) {
                 Icon(Icons.Default.Add, contentDescription = "Добавить")
             }
         },
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
-        modifier = modifier,
+        modifier = modifier
+            .background(color = MaterialTheme.colorScheme.tertiaryContainer),
     ) { paddingValues ->
         LazyColumn(
             modifier = Modifier
@@ -131,7 +140,8 @@ fun HabitCard(
 ) {
     Card(
         modifier = modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        colors = CardDefaults.cardColors(MaterialTheme.colorScheme.tertiaryContainer)
     ) {
         Row(
             modifier = Modifier
@@ -145,18 +155,23 @@ fun HabitCard(
                 Text(
                     text = habit.name,
                     style = MaterialTheme.typography.titleMedium,
-                    textDecoration = if (habit.isCompleted) TextDecoration.LineThrough else null
+                    textDecoration = if (habit.isCompleted) TextDecoration.LineThrough else null,
+                    color = MaterialTheme.colorScheme.onTertiaryContainer
                 )
                 Text(
                     text = habit.description,
                     style = MaterialTheme.typography.bodyMedium,
                     maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis,
+                    color = MaterialTheme.colorScheme.onTertiaryContainer
                 )
             }
             Checkbox(
                 checked = habit.isCompleted,
-                onCheckedChange = { onToggle() }
+                onCheckedChange = { onToggle() },
+                colors = CheckboxDefaults.colors(
+                    checkedColor = MaterialTheme.colorScheme.onTertiaryContainer
+                )
             )
             IconButton(onClick = onEdit) {
                 Icon(Icons.Default.Edit, contentDescription = "Редактировать")
