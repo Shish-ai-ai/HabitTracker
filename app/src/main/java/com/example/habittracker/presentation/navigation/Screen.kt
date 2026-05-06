@@ -9,5 +9,5 @@ sealed interface Screen {
     data object Habits : Screen
 
     @Serializable
-    data class AddEdit(val habitId: Int?) : Screen
+    data class AddEdit(val habitId: String?) : Screen
 }

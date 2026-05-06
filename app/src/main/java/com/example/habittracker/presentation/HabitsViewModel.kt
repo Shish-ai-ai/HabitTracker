@@ -1,9 +1,12 @@
 package com.example.habittracker.presentation
 
-import android.content.SharedPreferences
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.habittracker.data.Habit
+import com.example.habittracker.domain.Habit
+import com.example.habittracker.domain.HabitRepository
+import com.example.habittracker.domain.onError
+import com.example.habittracker.domain.onSuccess
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -11,11 +14,12 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
-import kotlinx.serialization.json.Json
-import androidx.core.content.edit
+import kotlinx.coroutines.launch
+import kotlin.uuid.ExperimentalUuidApi
+import kotlin.uuid.Uuid
 
 class HabitsViewModel(
-    private val sharedPreferences: SharedPreferences,
+    private val habitRepository: HabitRepository,
 ) : ViewModel() {
 
     private val _habits = MutableStateFlow<List<Habit>>(emptyList())
@@ -24,39 +28,41 @@ class HabitsViewModel(
     private val _snackbarMessage = MutableStateFlow<String?>(null)
     val snackbarMessage: StateFlow<String?> = _snackbarMessage.asStateFlow()
 
-    private var nextId = 0
-
-    companion object {
-        private const val KEY_HABITS = "key_habits"
-    }
-
     init {
-        getData()
+        startFetchingWithAutoRefresh()
     }
 
-    private fun getData() {
-        val json = sharedPreferences.getString(KEY_HABITS, null)
-        if (json != null) {
-            try {
-                val list = Json.decodeFromString<List<Habit>>(json)
-                _habits.value = list
-                nextId = list.maxOfOrNull { it.id }?.plus(1) ?: 0
-            } catch (e: Exception) {
-                e.printStackTrace()
+    private fun saveData() {
+        viewModelScope.launch {
+            habitRepository.saveData(habits.value)
+        }
+    }
+
+    private fun startFetchingWithAutoRefresh() {
+        viewModelScope.launch {
+            while (true) {
+                getData()
+                delay(REFRESH_DELAY_MS)
             }
         }
     }
 
-    private fun saveData() {
-        val json = Json.encodeToString(_habits.value)
-        sharedPreferences.edit { putString(KEY_HABITS, json) }
+    private suspend fun getData() {
+        habitRepository.getHabits()
+            .onSuccess { habits ->
+                _habits.value = habits
+            }
+            .onError { error ->
+                _snackbarMessage.value = "Ошибка! e=${error.name}"
+            }
     }
+
 
     fun clearSnackbarMessage() {
         _snackbarMessage.value = null
     }
 
-    fun habitById(id: Int?): StateFlow<Habit?> =
+    fun habitById(id: String?): StateFlow<Habit?> =
         _habits
             .map { list -> list.firstOrNull { it.id == id } }
             .stateIn(
@@ -65,8 +71,14 @@ class HabitsViewModel(
                 null
             )
 
+    @OptIn(ExperimentalUuidApi::class)
     fun addHabit(name: String, description: String) {
-        val habit = Habit(id = nextId++, name = name, description = description)
+        val habit = Habit(
+            id = "$Uuid.generateV4()",
+            name = name,
+            description = description
+        )
+
         _habits.update { old ->
             old + habit
         }
@@ -74,7 +86,7 @@ class HabitsViewModel(
         _snackbarMessage.value = "Привычка \"${habit.name}\" добавлена"
     }
 
-    fun updateHabit(id: Int, name: String, description: String) {
+    fun updateHabit(id: String, name: String, description: String) {
         _habits.update { old ->
             old.map {
                 if (it.id == id) it.copy(name = name, description = description)
@@ -99,5 +111,9 @@ class HabitsViewModel(
             }
         }
         saveData()
+    }
+
+    companion object {
+        private const val REFRESH_DELAY_MS = 60_000L
     }
 }

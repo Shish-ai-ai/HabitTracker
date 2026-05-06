@@ -43,7 +43,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.example.habittracker.data.Habit
+import com.example.habittracker.domain.Habit
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

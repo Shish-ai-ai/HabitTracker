@@ -1,10 +1,10 @@
-package com.example.habittracker.data
+package com.example.habittracker.domain
 
 import kotlinx.serialization.Serializable
 
 @Serializable
 data class Habit(
-    val id: Int,
+    val id: String,
     val name: String,
     val description: String,
     val isCompleted: Boolean = false,
