@@ -8,4 +8,6 @@ data class Habit(
     val name: String,
     val description: String,
     val isCompleted: Boolean = false,
+    val streak: Int = 0,
+    val lastCompletedDate: String? = null,
 )

@@ -17,6 +17,8 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 
 class HabitsViewModel(
     private val habitRepository: HabitRepository,
@@ -50,13 +52,42 @@ class HabitsViewModel(
     private suspend fun getData() {
         habitRepository.getHabits()
             .onSuccess { habits ->
-                _habits.value = habits
+                _habits.value = updateDailyCompletionStatus(habits)
             }
             .onError { error ->
                 _snackbarMessage.value = "Ошибка! e=${error.name}"
             }
     }
 
+    private fun updateDailyCompletionStatus(habits: List<Habit>): List<Habit> {
+        val today = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)
+
+        return habits.map { habit ->
+            val lastDate = habit.lastCompletedDate
+
+            if (lastDate == today) {
+                habit
+            } else {
+                val newStreak = calculateStreak(habit, today)
+                habit.copy(
+                    isCompleted = false,
+                    streak = newStreak
+                )
+            }
+        }
+    }
+
+    private fun calculateStreak(habit: Habit, today: String): Int {
+        val lastDate = habit.lastCompletedDate ?: return habit.streak
+        val yesterday = LocalDate.now().minusDays(1)
+            .format(DateTimeFormatter.ISO_LOCAL_DATE)
+
+        return if (lastDate == yesterday) {
+            habit.streak
+        } else {
+            0
+        }
+    }
 
     fun clearSnackbarMessage() {
         _snackbarMessage.value = null
@@ -76,12 +107,12 @@ class HabitsViewModel(
         val habit = Habit(
             id = "$Uuid.generateV4()",
             name = name,
-            description = description
+            description = description,
+            streak = 0,
+            lastCompletedDate = null
         )
 
-        _habits.update { old ->
-            old + habit
-        }
+        _habits.update { old -> old + habit }
         saveData()
         _snackbarMessage.value = "Привычка \"${habit.name}\" добавлена"
     }
@@ -104,13 +135,39 @@ class HabitsViewModel(
     }
 
     fun toggleCompleted(habit: Habit) {
+        val today = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)
+        val lastDate = habit.lastCompletedDate
+
+        if (habit.isCompleted && lastDate == today) {
+            _snackbarMessage.value = "\"${habit.name}\" уже отмечена сегодня!"
+            return
+        }
+
+        val yesterday = LocalDate.now().minusDays(1)
+            .format(DateTimeFormatter.ISO_LOCAL_DATE)
+
+        val newStreak = if (lastDate == yesterday) {
+            habit.streak + 1
+        } else {
+            1
+        }
+
         _habits.update { old ->
             old.map {
-                if (it.id == habit.id) it.copy(isCompleted = !it.isCompleted)
-                else it
+                if (it.id == habit.id) {
+                    it.copy(
+                        isCompleted = true,
+                        streak = newStreak,
+                        lastCompletedDate = today
+                    )
+                } else {
+                    it
+                }
             }
         }
+
         saveData()
+        _snackbarMessage.value = "\"${habit.name}\" отмечена! Серия: $newStreak дн."
     }
 
     companion object {

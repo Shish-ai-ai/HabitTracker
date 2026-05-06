@@ -1,13 +1,13 @@
 package com.example.habittracker.ui.screens
 
-import android.R
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -24,6 +24,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
@@ -40,10 +41,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.habittracker.domain.Habit
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -77,15 +81,14 @@ fun HabitsScreen(
         floatingActionButton = {
             FloatingActionButton(
                 onClick = onAddClick,
-                containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+                containerColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                contentColor = MaterialTheme.colorScheme.tertiaryContainer
             ) {
                 Icon(Icons.Default.Add, contentDescription = "Добавить")
             }
         },
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
-        modifier = modifier
-            .background(color = MaterialTheme.colorScheme.tertiaryContainer),
+        modifier = modifier,
     ) { paddingValues ->
         LazyColumn(
             modifier = Modifier
@@ -104,6 +107,7 @@ fun HabitsScreen(
             }
         }
     }
+
     habitToDelete?.let { habit ->
         AlertDialog(
             onDismissRequest = { habitToDelete = null },
@@ -138,46 +142,109 @@ fun HabitCard(
     onEdit: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val today = remember {
+        LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)
+    }
+
+    val isCheckedToday = habit.isCompleted && habit.lastCompletedDate == today
+
+    val isCheckboxEnabled = !isCheckedToday
+
+    val streakGoal = 7
+    val streakProgress = (habit.streak.toFloat() / streakGoal).coerceIn(0f, 1f)
+
     Card(
         modifier = modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
         colors = CardDefaults.cardColors(MaterialTheme.colorScheme.tertiaryContainer)
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .padding(16.dp)
         ) {
-            Column(
-                modifier = Modifier.weight(1f)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = habit.name,
-                    style = MaterialTheme.typography.titleMedium,
-                    textDecoration = if (habit.isCompleted) TextDecoration.LineThrough else null,
-                    color = MaterialTheme.colorScheme.onTertiaryContainer
+                Column(
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(
+                        text = habit.name,
+                        style = MaterialTheme.typography.titleMedium,
+                        textDecoration = if (isCheckedToday) TextDecoration.LineThrough else null,
+                        color = MaterialTheme.colorScheme.onTertiaryContainer
+                    )
+                    Text(
+                        text = habit.description,
+                        style = MaterialTheme.typography.bodyMedium,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        color = MaterialTheme.colorScheme.onTertiaryContainer
+                    )
+                }
+
+                Checkbox(
+                    checked = isCheckedToday,
+                    onCheckedChange = {
+                        if (isCheckboxEnabled) onToggle()
+                    },
+                    enabled = isCheckboxEnabled,
+                    colors = CheckboxDefaults.colors(
+                        checkedColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                        disabledCheckedColor = MaterialTheme.colorScheme.onTertiaryContainer
+                            .copy(alpha = 0.5f),
+                        disabledUncheckedColor = MaterialTheme.colorScheme.onTertiaryContainer
+                            .copy(alpha = 0.3f)
+                    )
                 )
-                Text(
-                    text = habit.description,
-                    style = MaterialTheme.typography.bodyMedium,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    color = MaterialTheme.colorScheme.onTertiaryContainer
-                )
+
+                IconButton(onClick = onEdit) {
+                    Icon(
+                        Icons.Default.Edit,
+                        contentDescription = "Редактировать",
+                        tint = MaterialTheme.colorScheme.onTertiaryContainer
+                    )
+                }
+
+                IconButton(onClick = onDelete) {
+                    Icon(
+                        Icons.Default.Delete,
+                        contentDescription = "Удалить",
+                        tint = MaterialTheme.colorScheme.onTertiaryContainer
+                    )
+                }
             }
-            Checkbox(
-                checked = habit.isCompleted,
-                onCheckedChange = { onToggle() },
-                colors = CheckboxDefaults.colors(
-                    checkedColor = MaterialTheme.colorScheme.onTertiaryContainer
-                )
-            )
-            IconButton(onClick = onEdit) {
-                Icon(Icons.Default.Edit, contentDescription = "Редактировать")
-            }
-            IconButton(onClick = onDelete) {
-                Icon(Icons.Default.Delete, contentDescription = "Удалить")
+
+            if (habit.streak > 0) {
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Серия: ${habit.streak} дн.",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onTertiaryContainer
+                            .copy(alpha = 0.8f)
+                    )
+
+                    LinearProgressIndicator(
+                        progress = { streakProgress },
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(start = 12.dp)
+                            .height(8.dp),
+                        color = if (isCheckedToday)
+                            MaterialTheme.colorScheme.tertiary
+                        else
+                            MaterialTheme.colorScheme.outlineVariant,
+                        trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                        strokeCap = StrokeCap.Round,
+                    )
+                }
             }
         }
     }

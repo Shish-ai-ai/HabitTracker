@@ -19,4 +19,8 @@ data class HabitDto(
     val description: String,
     @SerialName("streak")
     val streak: Int,
+    @SerialName("createdAt")
+    val createdAt: String? = null,
+    @SerialName("updatedAt")
+    val updatedAt: String? = null,
 )

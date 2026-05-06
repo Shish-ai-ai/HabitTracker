@@ -54,15 +54,21 @@ class HabitRepositoryImpl(
         local: List<Habit>,
         remote: List<Habit>
     ): List<Habit> {
-        val map = local.associateBy { it.id }.toMutableMap()
+        val localMap = local.associateBy { it.id }.toMutableMap()
 
-        for (habit in remote) {
-            if (!map.containsKey(habit.id)) {
-                map[habit.id] = habit
+        for (remoteHabit in remote) {
+            val localHabit = localMap[remoteHabit.id]
+            if (localHabit != null) {
+                localMap[remoteHabit.id] = remoteHabit.copy(
+                    isCompleted = localHabit.isCompleted,
+                    lastCompletedDate = localHabit.lastCompletedDate
+                )
+            } else {
+                localMap[remoteHabit.id] = remoteHabit
             }
         }
 
-        return map.values.toList()
+        return localMap.values.toList()
     }
 
     private fun getCachedHabits(): List<Habit>? {
@@ -90,7 +96,9 @@ class HabitRepositoryImpl(
         id = id,
         name = title,
         description = description,
-        isCompleted = streak > 0,
+        isCompleted = false,
+        streak = streak,
+        lastCompletedDate = null,
     )
 
     companion object {
