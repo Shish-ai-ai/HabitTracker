@@ -29,9 +29,13 @@ class HabitsViewModel(
 
     private val _snackbarMessage = MutableStateFlow<String?>(null)
     val snackbarMessage: StateFlow<String?> = _snackbarMessage.asStateFlow()
+    private val _isRefreshing = MutableStateFlow(false)
+    val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
 
     init {
-        startFetchingWithAutoRefresh()
+        viewModelScope.launch {
+            getData()
+        }
     }
 
     private fun saveData() {
@@ -40,12 +44,11 @@ class HabitsViewModel(
         }
     }
 
-    private fun startFetchingWithAutoRefresh() {
+    fun refresh() {
         viewModelScope.launch {
-            while (true) {
-                getData()
-                delay(REFRESH_DELAY_MS)
-            }
+            _isRefreshing.value = true
+            getData()
+            _isRefreshing.value = false
         }
     }
 
@@ -55,7 +58,7 @@ class HabitsViewModel(
                 _habits.value = updateDailyCompletionStatus(habits)
             }
             .onError { error ->
-                _snackbarMessage.value = "Ошибка! e=${error.name}"
+                _snackbarMessage.value = "Ошибка загрузки: ${error.name}"
             }
     }
 
@@ -168,9 +171,5 @@ class HabitsViewModel(
 
         saveData()
         _snackbarMessage.value = "\"${habit.name}\" отмечена! Серия: $newStreak дн."
-    }
-
-    companion object {
-        private const val REFRESH_DELAY_MS = 60_000L
     }
 }

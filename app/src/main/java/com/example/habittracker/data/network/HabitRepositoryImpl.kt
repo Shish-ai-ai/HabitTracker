@@ -61,6 +61,7 @@ class HabitRepositoryImpl(
             if (localHabit != null) {
                 localMap[remoteHabit.id] = remoteHabit.copy(
                     isCompleted = localHabit.isCompleted,
+                    streak = localHabit.streak,
                     lastCompletedDate = localHabit.lastCompletedDate
                 )
             } else {

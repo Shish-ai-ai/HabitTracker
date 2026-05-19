@@ -48,11 +48,14 @@ import androidx.compose.ui.unit.dp
 import com.example.habittracker.domain.Habit
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HabitsScreen(
     habits: List<Habit>,
+    isRefreshing: Boolean = false,
+    onRefresh: () -> Unit = {},
     onToggle: (Habit) -> Unit,
     onDelete: (Habit) -> Unit,
     onEditClick: (Habit) -> Unit,
@@ -90,20 +93,27 @@ fun HabitsScreen(
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         modifier = modifier,
     ) { paddingValues ->
-        LazyColumn(
+        PullToRefreshBox(
+            isRefreshing = isRefreshing,
+            onRefresh = onRefresh,
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-            contentPadding = PaddingValues(16.dp)
         ) {
-            items(habits) { habit ->
-                HabitCard(
-                    habit = habit,
-                    onToggle = { onToggle(habit) },
-                    onDelete = { habitToDelete = habit },
-                    onEdit = { onEditClick(habit) }
-                )
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                contentPadding = PaddingValues(16.dp)
+            ) {
+                items(habits) { habit ->
+                    HabitCard(
+                        habit = habit,
+                        onToggle = { onToggle(habit) },
+                        onDelete = { habitToDelete = habit },
+                        onEdit = { onEditClick(habit) }
+                    )
+                }
             }
         }
     }

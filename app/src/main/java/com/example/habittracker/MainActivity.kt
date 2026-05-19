@@ -35,6 +35,7 @@ fun MyHabitTrackerApp() {
     val viewModel: HabitsViewModel = koinViewModel()
 
     val snackbarMessage by viewModel.snackbarMessage.collectAsStateWithLifecycle()
+    val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
 
     NavHost(
         navController = navController,
@@ -44,6 +45,8 @@ fun MyHabitTrackerApp() {
             val habits by viewModel.habits.collectAsStateWithLifecycle()
             HabitsScreen(
                 habits = habits,
+                isRefreshing = isRefreshing,
+                onRefresh = viewModel::refresh,
                 onToggle = viewModel::toggleCompleted,
                 onDelete = viewModel::deleteHabit,
                 onEditClick = { habit ->
