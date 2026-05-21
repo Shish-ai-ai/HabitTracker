@@ -2,46 +2,98 @@ package com.example.habittracker.presentation
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.habittracker.data.network.SortOption
 import com.example.habittracker.domain.Habit
 import com.example.habittracker.domain.HabitRepository
 import com.example.habittracker.domain.onError
 import com.example.habittracker.domain.onSuccess
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlin.uuid.ExperimentalUuidApi
-import kotlin.uuid.Uuid
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+import kotlin.uuid.ExperimentalUuidApi
+import kotlin.uuid.Uuid
 
 class HabitsViewModel(
     private val habitRepository: HabitRepository,
 ) : ViewModel() {
 
+    private val _allHabits = MutableStateFlow<List<Habit>>(emptyList())
+
     private val _habits = MutableStateFlow<List<Habit>>(emptyList())
-    val habits = _habits.asStateFlow()
+    val habits: StateFlow<List<Habit>> = _habits.asStateFlow()
 
     private val _snackbarMessage = MutableStateFlow<String?>(null)
     val snackbarMessage: StateFlow<String?> = _snackbarMessage.asStateFlow()
+
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
+
+    private val _filterCompleted = MutableStateFlow<Boolean?>(null)
+    val filterCompleted: StateFlow<Boolean?> = _filterCompleted.asStateFlow()
+
+    private val _sortOption = MutableStateFlow(SortOption.NAME_ASC)
+    val sortOption: StateFlow<SortOption> = _sortOption.asStateFlow()
 
     init {
         viewModelScope.launch {
             getData()
         }
+
+        viewModelScope.launch {
+            combine(_filterCompleted, _sortOption) { filter, sort ->
+                filter to sort
+            }.collect(::applyFilterAndSort)
+        }
+    }
+
+    private fun applyFilterAndSort(filterAndSort: Pair<Boolean?, SortOption>) {
+        val showCompleted = filterAndSort.first
+        val sortOption = filterAndSort.second
+        viewModelScope.launch {
+            habitRepository.getFilteredAndSortedHabits(
+                showCompleted = showCompleted,
+                sortOption = sortOption,
+            )
+                .onSuccess { habits ->
+                    _habits.update { habits }
+                }
+                .onError { error ->
+                    _snackbarMessage.value = "Ошибка загрузки: ${error.name}"
+                }
+        }
+    }
+
+    fun setFilter(showCompleted: Boolean?) {
+        _filterCompleted.value = showCompleted
+    }
+
+    fun setSortOption(option: SortOption) {
+        _sortOption.value = option
     }
 
     private fun saveData() {
         viewModelScope.launch {
-            habitRepository.saveData(habits.value)
+            habitRepository.saveData(_allHabits.value)
         }
+    }
+
+    private suspend fun getData() {
+        habitRepository.getHabits()
+            .onSuccess { habits ->
+                _allHabits.update { updateDailyCompletionStatus(habits) }
+                saveData()
+            }
+            .onError { error ->
+                _snackbarMessage.value = "Ошибка загрузки: ${error.name}"
+            }
     }
 
     fun refresh() {
@@ -50,16 +102,6 @@ class HabitsViewModel(
             getData()
             _isRefreshing.value = false
         }
-    }
-
-    private suspend fun getData() {
-        habitRepository.getHabits()
-            .onSuccess { habits ->
-                _habits.value = updateDailyCompletionStatus(habits)
-            }
-            .onError { error ->
-                _snackbarMessage.value = "Ошибка загрузки: ${error.name}"
-            }
     }
 
     private fun updateDailyCompletionStatus(habits: List<Habit>): List<Habit> {
@@ -97,7 +139,7 @@ class HabitsViewModel(
     }
 
     fun habitById(id: String?): StateFlow<Habit?> =
-        _habits
+        _allHabits
             .map { list -> list.firstOrNull { it.id == id } }
             .stateIn(
                 viewModelScope,
@@ -115,13 +157,13 @@ class HabitsViewModel(
             lastCompletedDate = null
         )
 
-        _habits.update { old -> old + habit }
+        _allHabits.update { old -> old + habit }
         saveData()
         _snackbarMessage.value = "Привычка \"${habit.name}\" добавлена"
     }
 
     fun updateHabit(id: String, name: String, description: String) {
-        _habits.update { old ->
+        _allHabits.update { old ->
             old.map {
                 if (it.id == id) it.copy(name = name, description = description)
                 else it
@@ -132,7 +174,7 @@ class HabitsViewModel(
     }
 
     fun deleteHabit(habit: Habit) {
-        _habits.update { old -> old - habit }
+        _allHabits.update { old -> old - habit }
         saveData()
         _snackbarMessage.value = "Привычка \"${habit.name}\" удалена"
     }
@@ -155,7 +197,7 @@ class HabitsViewModel(
             1
         }
 
-        _habits.update { old ->
+        _allHabits.update { old ->
             old.map {
                 if (it.id == habit.id) {
                     it.copy(

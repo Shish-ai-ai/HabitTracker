@@ -2,6 +2,8 @@ package com.example.habittracker.di
 
 import android.content.Context
 import android.content.SharedPreferences
+import androidx.room.Room
+import com.example.habittracker.data.local.AppDatabase
 import com.example.habittracker.data.network.HabitRepositoryImpl
 import com.example.habittracker.domain.HabitRepository
 import com.example.habittracker.presentation.HabitsViewModel
@@ -25,6 +27,14 @@ val appModule = module {
 
     factory<SharedPreferences> {
         androidContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    }
+
+    single {
+        Room.databaseBuilder(
+            androidContext(),
+            AppDatabase::class.java,
+            "habits_database"
+        ).build()
     }
 
     single<HttpClientEngine> { OkHttp.create() }
@@ -53,7 +63,7 @@ val appModule = module {
     factory<HabitRepository> {
         HabitRepositoryImpl(
             habitApiClient = get(),
-            sharedPreferences = get(),
+            database = get()
         )
     }
 

@@ -36,6 +36,8 @@ fun MyHabitTrackerApp() {
 
     val snackbarMessage by viewModel.snackbarMessage.collectAsStateWithLifecycle()
     val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
+    val filterCompleted by viewModel.filterCompleted.collectAsStateWithLifecycle()
+    val sortOption by viewModel.sortOption.collectAsStateWithLifecycle()
 
     NavHost(
         navController = navController,
@@ -56,7 +58,11 @@ fun MyHabitTrackerApp() {
                     navController.navigate(Screen.AddEdit(null))
                 },
                 snackbarMessage = snackbarMessage,
-                onSnackbarShown = viewModel::clearSnackbarMessage
+                onSnackbarShown = viewModel::clearSnackbarMessage,
+                filterCompleted = filterCompleted,
+                onFilterChange = viewModel::setFilter,
+                sortOption = sortOption,
+                onSortChange = viewModel::setSortOption,
             )
         }
 
@@ -66,9 +72,8 @@ fun MyHabitTrackerApp() {
             AddEditHabitScreen(
                 habit = habit,
                 onSave = { name, description ->
-                    habit?.let { it -> viewModel.updateHabit(it.id, name, description) } ?: run {
-                        viewModel.addHabit(name, description)
-                    }
+                    habit?.let { viewModel.updateHabit(it.id, name, description) }
+                        ?: viewModel.addHabit(name, description)
                 },
                 onNavigateBack = { navController.popBackStack() }
             )

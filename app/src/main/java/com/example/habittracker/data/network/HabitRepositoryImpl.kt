@@ -1,7 +1,8 @@
 package com.example.habittracker.data.network
 
-import android.content.SharedPreferences
-import androidx.core.content.edit
+import com.example.habittracker.data.local.AppDatabase
+import com.example.habittracker.data.local.toDomainList
+import com.example.habittracker.data.local.toEntityList
 import com.example.habittracker.domain.DataError
 import com.example.habittracker.domain.Habit
 import com.example.habittracker.domain.HabitRepository
@@ -9,45 +10,100 @@ import com.example.habittracker.domain.Result
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.single
+import kotlinx.coroutines.flow.singleOrNull
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.json.Json
+import kotlin.collections.emptyList
 
 class HabitRepositoryImpl(
     private val habitApiClient: HttpClient,
-    private val sharedPreferences: SharedPreferences,
+    database: AppDatabase
 ) : HabitRepository {
 
-    override suspend fun getHabits(): Result<List<Habit>, DataError.Remote> {
-        val localHabits = getCachedHabits().orEmpty()
+    private val habitDao = database.habitDao()
+    private val localHabits = MutableStateFlow<List<Habit>>(emptyList())
 
-        val result = safeCall<HabitResponseDto> {
-            habitApiClient.get("$BASE_URL/habits-tracker")
+    private suspend fun getLocalHabits(): List<Habit> = habitDao.getAllHabits()
+        .map { it.toDomainList() }
+        .firstOrNull() ?: emptyList()
+
+    override suspend fun getFilteredAndSortedHabits(
+        showCompleted: Boolean?,
+        sortOption: SortOption?,
+    ): Result<List<Habit>, DataError.Local> = try {
+        when {
+            showCompleted == true && sortOption == SortOption.NAME_ASC ->
+                habitDao.getCompletedHabitsSortedByNameAsc()
+
+            showCompleted == true && sortOption == SortOption.NAME_DESC ->
+                habitDao.getCompletedHabitsSortedByNameDesc()
+
+            showCompleted == false && sortOption == SortOption.NAME_ASC ->
+                habitDao.getUncompletedHabitsSortedByNameAsc()
+
+            showCompleted == false && sortOption == SortOption.NAME_DESC ->
+                habitDao.getUncompletedHabitsSortedByNameDesc()
+
+            sortOption == SortOption.NAME_ASC ->
+                habitDao.getAllHabitsSortedByNameAsc()
+
+            sortOption == SortOption.NAME_DESC ->
+                habitDao.getAllHabitsSortedByNameDesc()
+
+            else -> habitDao.getAllHabits()
         }
+            .map { Result.Success(it.toDomainList()) }
+            .firstOrNull()?: Result.Success(emptyList())
+    } catch (_: Exception) {
+        currentCoroutineContext().ensureActive()
+        Result.Error(DataError.Local.UNKNOWN)
+    }
 
-        return when (result) {
-            is Result.Success -> {
-                val remoteHabits = result.data.habits.map { it.toDomain() }
+    override suspend fun getHabits(): Result<List<Habit>, DataError.Remote> {
+        return try {
+            val habits = getLocalHabits()
 
-                val merged = mergeHabits(localHabits, remoteHabits)
-
-                saveHabits(merged)
-
-                Result.Success(merged)
+            val result = safeCall<HabitResponseDto> {
+                habitApiClient.get("$BASE_URL/habits-tracker")
             }
 
-            is Result.Error -> {
-                if (localHabits.isNotEmpty()) {
-                    Result.Success(localHabits)
-                } else {
-                    result
+            when (result) {
+                is Result.Success -> {
+                    val remoteHabits = result.data.habits.map { it.toDomain() }
+                    val merged = mergeHabits(habits, remoteHabits)
+
+                    withContext(Dispatchers.IO) {
+                        habitDao.deleteAll()
+                        habitDao.insertAll(merged.toEntityList())
+                        localHabits.update { merged }
+                    }
+
+                    Result.Success(merged)
+                }
+
+                is Result.Error -> {
+                    if (habits.isNotEmpty()) {
+                        Result.Success(habits)
+                    } else {
+                        result
+                    }
                 }
             }
+        } catch (_: Exception) {
+            Result.Error(DataError.Remote.UNKNOWN)
         }
     }
 
     override suspend fun saveData(habits: List<Habit>) = withContext(Dispatchers.IO) {
-        val json = Json.encodeToString(habits)
-        sharedPreferences.edit { putString(KEY_HABITS, json) }
+        habitDao.deleteAll()
+        habitDao.insertAll(habits.toEntityList())
     }
 
     private fun mergeHabits(
@@ -72,27 +128,6 @@ class HabitRepositoryImpl(
         return localMap.values.toList()
     }
 
-    private fun getCachedHabits(): List<Habit>? {
-        val json = sharedPreferences.getString(KEY_HABITS, null)
-        return json?.let {
-            try {
-                Json.decodeFromString(it)
-            } catch (_: Exception) {
-                null
-            }
-        }
-    }
-
-    private fun saveHabits(habits: List<Habit>) {
-        try {
-            val json = Json.encodeToString(habits)
-            sharedPreferences.edit {
-                putString(KEY_HABITS, json)
-            }
-        } catch (_: Exception) {
-        }
-    }
-
     private fun HabitDto.toDomain() = Habit(
         id = id,
         name = title,
@@ -104,6 +139,5 @@ class HabitRepositoryImpl(
 
     companion object {
         private const val BASE_URL = "https://api-labs.wiremockapi.cloud"
-        private const val KEY_HABITS = "KEY_HABITS"
     }
 }

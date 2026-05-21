@@ -13,6 +13,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
@@ -21,6 +23,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -33,6 +36,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -45,10 +49,10 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.example.habittracker.data.network.SortOption
 import com.example.habittracker.domain.Habit
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -62,10 +66,13 @@ fun HabitsScreen(
     onAddClick: () -> Unit,
     snackbarMessage: String?,
     onSnackbarShown: () -> Unit,
+    filterCompleted: Boolean? = null,
+    onFilterChange: (Boolean?) -> Unit = {},
+    sortOption: SortOption = SortOption.NAME_ASC,
+    onSortChange: (SortOption) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     var habitToDelete by remember { mutableStateOf<Habit?>(null) }
-
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(snackbarMessage) {
@@ -80,12 +87,32 @@ fun HabitsScreen(
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
-        topBar = { TopAppBar(title = { Text("Habit Tracker") }) },
+        topBar = {
+            TopAppBar(
+                title = { Text("Habit Tracker") },
+                actions = {
+                    IconButton(onClick = {
+                        onSortChange(
+                            if (sortOption == SortOption.NAME_ASC) SortOption.NAME_DESC
+                            else SortOption.NAME_ASC
+                        )
+                    }) {
+                        Icon(
+                            imageVector = if (sortOption == SortOption.NAME_ASC)
+                                Icons.Default.ArrowDownward
+                            else
+                                Icons.Default.ArrowUpward,
+                            contentDescription = "Сортировка по названию"
+                        )
+                    }
+                }
+            )
+        },
         floatingActionButton = {
             FloatingActionButton(
                 onClick = onAddClick,
-                containerColor = MaterialTheme.colorScheme.onTertiaryContainer,
-                contentColor = MaterialTheme.colorScheme.tertiaryContainer
+                containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                contentColor = MaterialTheme.colorScheme.onTertiaryContainer
             ) {
                 Icon(Icons.Default.Add, contentDescription = "Добавить")
             }
@@ -93,26 +120,52 @@ fun HabitsScreen(
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         modifier = modifier,
     ) { paddingValues ->
-        PullToRefreshBox(
-            isRefreshing = isRefreshing,
-            onRefresh = onRefresh,
+        Column(
             modifier = Modifier
                 .fillMaxSize()
+                .padding(paddingValues)
         ) {
-            LazyColumn(
+            Row(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                contentPadding = PaddingValues(16.dp)
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                items(habits) { habit ->
-                    HabitCard(
-                        habit = habit,
-                        onToggle = { onToggle(habit) },
-                        onDelete = { habitToDelete = habit },
-                        onEdit = { onEditClick(habit) }
-                    )
+                FilterChip(
+                    selected = filterCompleted == null,
+                    onClick = { onFilterChange(null) },
+                    label = { Text("Все") }
+                )
+                FilterChip(
+                    selected = filterCompleted == true,
+                    onClick = { onFilterChange(true) },
+                    label = { Text("Выполненные") }
+                )
+                FilterChip(
+                    selected = filterCompleted == false,
+                    onClick = { onFilterChange(false) },
+                    label = { Text("Невыполненные") }
+                )
+            }
+
+            PullToRefreshBox(
+                isRefreshing = isRefreshing,
+                onRefresh = onRefresh,
+                modifier = Modifier.fillMaxSize()
+            ) {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    contentPadding = PaddingValues(16.dp)
+                ) {
+                    items(habits) { habit ->
+                        HabitCard(
+                            habit = habit,
+                            onToggle = { onToggle(habit) },
+                            onDelete = { habitToDelete = habit },
+                            onEdit = { onEditClick(habit) }
+                        )
+                    }
                 }
             }
         }
@@ -157,7 +210,6 @@ fun HabitCard(
     }
 
     val isCheckedToday = habit.isCompleted && habit.lastCompletedDate == today
-
     val isCheckboxEnabled = !isCheckedToday
 
     val streakGoal = 7
